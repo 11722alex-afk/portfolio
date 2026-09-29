@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>統一・持股總覽（即時價）</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1a1d23;--mu:#6b7280;--bd:#e5e7eb;--up:#d92d20;--dn:#12a150;--ac:#2f5bea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#181b21;--tx:#e8eaee;--mu:#9099a8;--bd:#2a2f38;--up:#ff6b5e;--dn:#3ddc84;--ac:#7c9bff}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#181b21;--tx:#e8eaee;--mu:#9099a8;--bd:#2a2f38;--up:#ff6b5e;--dn:#3ddc84;--ac:#7c9bff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0}.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.sub{color:var(--mu);font-size:12px}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:6px 12px;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.k,.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+.k .l{color:var(--mu);font-size:12px}.k .v{font-size:20px;font-weight:600;margin-top:2px}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.c{margin-bottom:14px}.c h2{font-size:15px;margin:0 0 8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.c h2 span{font-weight:400;font-size:12px;color:var(--mu)}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}
+th{color:var(--mu);font-weight:500;font-size:12px}
+th:first-child,td:first-child{text-align:left}
+td small{color:var(--mu);margin-left:4px}
+input{width:88px;font:inherit;text-align:right;color:var(--tx);background:transparent;border:1px solid var(--bd);border-radius:6px;padding:3px 6px}
+input.p{width:76px}
+tfoot td{font-weight:600;border-bottom:0}
+.m{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bar{flex:1;min-width:200px;height:12px;background:var(--bd);border-radius:6px;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--ac)}
+.big{font-size:30px;font-weight:700}
+.alloc{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0}
+.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mu)}
+.lg b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+.src{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.src input{flex:1;min-width:240px;width:auto;text-align:left}
+.src select{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:5px}
+.st{font-size:12px;margin-top:6px;color:var(--mu)}.st.err{color:var(--up)}.st.ok{color:var(--dn)}
+details{margin-top:8px;font-size:12px;color:var(--mu)}details ol{margin:6px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top">
+    <div><h1>統一・持股總覽</h1><div class="sub">現價會從 Google Sheet 自動更新；股數、已質押金額可直接修改</div></div>
+    <button id="rst">還原預設數值</button>
+  </div>
+  <div class="c">
+    <h2>現價來源（Google Sheet）<span id="lu"></span></h2>
+    <div class="src">
+      <input id="url" type="url" placeholder="貼上「發佈到網路」產生的 CSV 網址">
+      <button id="go">儲存並更新</button>
+      <select id="iv"><option value="0">不自動更新</option><option value="30">每 30 秒</option><option value="60" selected>每 60 秒</option><option value="300">每 5 分鐘</option></select>
+    </div>
+    <div class="st" id="st">尚未設定網址，目前使用手動輸入的價格</div>
+    <details><summary>如何取得 CSV 網址</summary><ol>
+      <li>開啟你的 Google Sheet，切換到「統一」分頁</li>
+      <li>檔案 → 分享 → 發佈到網路</li>
+      <li>左側選「統一」分頁，右側格式選「逗號分隔值 (.csv)」，按發佈</li>
+      <li>複製產生的網址貼到上方即可（以 B 欄股號比對 C 欄現價）</li>
+    </ol></details>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="c" id="mt"></div>
+  <div class="c"><h2>資產配置（現值）</h2><div class="alloc" id="al"></div><div class="lg" id="lg"></div></div>
+  <div id="tbs"></div>
+  <div class="sub">損益＝現值−成本；現值已扣除賣出手續費／證交稅（個股 ×0.9966、ETF ×0.998601、債券 ETF ×0.999601）；ETF／債券可質押額度＝市值×60%。維持率＝(ETF現值＋債券現值)÷總已質押。</div>
+</div>
+<script>
+const DEF=[
+{g:"個股",f:.9966,pl:false,r:[["台耀","6274",1490,1000,1405900],["貿聯-ky","3665",2385,260,509024],["創意","3443",8100,910,4447109],["聯發科","2454",4955,300,1279980],["景碩","3189",948,2000,1053299],["雍智科技","6683",1490,1100,1861763],["禾伸堂","3026",794,2000,1716858],["聯亞","3081",2685,500,1346916]]},
+{g:"ETF",f:.998601,pl:true,r:[["富邦公司","00692",96.25,19000,723822,1100000],["野村臺新50","00935",60.45,40000,957852,1490000],["元大高息低波","00713",63.3,62000,3694817,2350000],["群益台灣正2","00685L",12.75,32000,349618,240000],["國泰費半","00830",87.5,16000,701598,838000]]},
+{g:"債券",f:.999601,pl:true,r:[["中信0-1公債","00864B",46.15,93000,4208594,2570000],["國泰短債","00865B",48.88,136000,6564221,3990000]]}
+];
+const KEY="tw-portfolio-v1",COL=["#2f5bea","#12a5a0","#f5a524"];
+let S=clone(DEF);
+try{const t=localStorage.getItem(KEY);if(t)S=merge(JSON.parse(t))}catch(e){}
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function merge(s){return DEF.map((g,i)=>({...clone(g),r:g.r.map((r,j)=>(s[i]&&s[i].r[j]&&s[i].r[j].length===r.length)?s[i].r[j]:clone(r))}))}
+const N=(x,d=0)=>Number(x).toLocaleString("zh-TW",{minimumFractionDigits:d,maximumFractionDigits:d});
+const cl=v=>v>=0?"up":"dn";
+const sg=(v,d=0)=>(v>0?"+":"")+N(v,d);
+function calc(){
+  return S.map(g=>{
+    const rows=g.r.map(r=>{const[n,c,p,q,cost,pd]=r;const v=p*q*g.f,lim=g.pl?p*q*.6:0;
+      return{n,c,p,q,cost,v,pnl:v-cost,ret:(v/cost-1)*100,lim,pd:pd||0,left:lim-(pd||0)}});
+    const s=k=>rows.reduce((a,r)=>a+r[k],0);
+    return{g:g.g,pl:g.pl,rows,cost:s("cost"),v:s("v"),pnl:s("pnl"),lim:s("lim"),pd:s("pd"),left:s("left")}
+  });
+}
+function render(){
+  const G=calc(),T=k=>G.reduce((a,g)=>a+g[k],0);
+  const cost=T("cost"),v=T("v"),pnl=T("pnl"),lim=T("lim"),pd=T("pd");
+  const mr=(G[1].v+G[2].v)/pd*100;
+  kpis.innerHTML=[["持股成本",N(cost),""],["總部位現值",N(v),""],["總損益",sg(pnl),cl(pnl)],["總報酬率",sg((v/cost-1)*100,2)+"%",cl(pnl)],["可質押額度",N(lim),""],["尚可質押",N(lim-pd),lim-pd<0?"up":""]]
+   .map(([l,x,c])=>`<div class="k"><div class="l">${l}</div><div class="v ${c}">${x}</div></div>`).join("");
+  const col=mr<130?"var(--up)":"var(--ac)";
+  mt.innerHTML=`<h2>整戶維持率<span>已質押 ${N(pd)}　／　額度 ${N(lim)}</span></h2><div class="m"><div class="big" style="color:${col}">${N(mr,1)}%</div><div class="bar"><i style="width:${Math.min(mr/3,100)}%;background:${col}"></i></div><div class="sub">長條以 300% 為滿</div></div>`;
+  al.innerHTML=G.map((g,i)=>`<div style="width:${g.v/v*100}%;background:${COL[i]}"></div>`).join("");
+  lg.innerHTML=G.map((g,i)=>`<span><b style="background:${COL[i]}"></b>${g.g} ${N(g.v/v*100,1)}%（${N(g.v)}）</span>`).join("");
+  tbs.innerHTML=G.map((g,gi)=>{
+    const h=`<th>股名</th><th>現價</th><th>股數</th><th>均價</th><th>成本</th><th>現值</th><th>報酬%</th><th>損益</th>`+(g.pl?`<th>可質押</th><th>已質押</th><th>尚可</th>`:"");
+    const b=g.rows.map((r,ri)=>`<tr><td>${r.n}<small>${r.c}</small></td>
+      <td><input class="p" type="number" step="any" data-g="${gi}" data-r="${ri}" data-i="2" value="${r.p}"></td>
+      <td><input type="number" data-g="${gi}" data-r="${ri}" data-i="3" value="${r.q}"></td>
+      <td>${N(r.cost/r.q,2)}</td><td>${N(r.cost)}</td><td>${N(r.v)}</td>
+      <td class="${cl(r.pnl)}">${sg(r.ret,2)}%</td><td class="${cl(r.pnl)}">${sg(r.pnl)}</td>
+      ${g.pl?`<td>${N(r.lim)}</td><td><input type="number" data-g="${gi}" data-r="${ri}" data-i="5" value="${r.pd}"></td><td class="${r.left<0?"up":""}">${N(r.left)}</td>`:""}</tr>`).join("");
+    const f=`<tr><td>小計</td><td></td><td></td><td></td><td>${N(g.cost)}</td><td>${N(g.v)}</td><td class="${cl(g.pnl)}">${sg((g.v/g.cost-1)*100,2)}%</td><td class="${cl(g.pnl)}">${sg(g.pnl)}</td>${g.pl?`<td>${N(g.lim)}</td><td>${N(g.pd)}</td><td class="${g.left<0?"up":""}">${N(g.left)}</td>`:""}</tr>`;
+    return `<div class="c"><h2>${g.g}<span>${N(g.v/v*100,1)}% 佔比</span></h2><div class="sc"><table><thead><tr>${h}</tr></thead><tbody>${b}</tbody><tfoot>${f}</tfoot></table></div></div>`;
+  }).join("");
+}
+document.addEventListener("change",e=>{
+  const t=e.target;if(!t.dataset||t.dataset.i===undefined)return;
+  S[t.dataset.g].r[t.dataset.r][t.dataset.i]=parseFloat(t.value)||0;
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}
+  render();
+});
+rst.onclick=()=>{S=clone(DEF);try{localStorage.removeItem(KEY)}catch(e){}render()};
+render();
+
+const UKEY="tw-portfolio-csv-url",IKEY="tw-portfolio-iv";
+const DEFAULT_CSV_URL=""; // 也可以直接把網址填在這裡
+let timer=null;
+function parseCSV(t){const R=[];let r=[],c="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===","){r.push(c);c=""}
+    else if(ch==="\n"){r.push(c);R.push(r);r=[];c=""}
+    else if(ch!=="\r")c+=ch}
+  if(c!==""||r.length){r.push(c);R.push(r)}return R}
+function setSt(m,k){st.textContent=m;st.className="st "+(k||"")}
+async function refresh(){
+  const u=url.value.trim();if(!u){setSt("尚未設定網址，目前使用手動輸入的價格");return}
+  try{
+    const res=await fetch(u+(u.includes("?")?"&":"?")+"_t="+Date.now());
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const rows=parseCSV(await res.text());
+    const map={};
+    rows.forEach(r=>{const code=(r[1]||"").trim().toUpperCase(),p=parseFloat((r[2]||"").replace(/,/g,""));
+      if(code&&p>0)map[code]=p});
+    let hit=0,miss=[];
+    S.forEach(g=>g.r.forEach(r=>{const p=map[r[1].toUpperCase()];if(p){r[2]=p;hit++}else miss.push(r[0])}));
+    try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    render();
+    const t=new Date().toLocaleTimeString("zh-TW",{hour12:false});
+    lu.textContent="最後更新 "+t;
+    setSt("已更新 "+hit+" 檔"+(miss.length?"；找不到："+miss.join("、"):""),miss.length?"err":"ok");
+  }catch(e){setSt("更新失敗："+e.message+"（請確認已「發佈到網路」且格式為 CSV）","err")}
+}
+function schedule(){clearInterval(timer);const n=+iv.value;if(n>0&&url.value.trim())timer=setInterval(refresh,n*1000)}
+go.onclick=()=>{try{localStorage.setItem(UKEY,url.value.trim());localStorage.setItem(IKEY,iv.value)}catch(e){}schedule();refresh()};
+iv.onchange=()=>{try{localStorage.setItem(IKEY,iv.value)}catch(e){}schedule()};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&url.value.trim())refresh()});
+try{url.value=localStorage.getItem(UKEY)||DEFAULT_CSV_URL;iv.value=localStorage.getItem(IKEY)||"60"}catch(e){url.value=DEFAULT_CSV_URL}
+schedule();refresh();
+</script>
+</body>
+</html>
