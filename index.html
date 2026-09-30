@@ -24,7 +24,7 @@ tr.h td{background:var(--hd);font-weight:600;color:var(--mu)}td.n{color:var(--er
 input{font:inherit;color:var(--tx);background:transparent;border:1px solid var(--bd);border-radius:6px;padding:4px 8px;width:100%}
 .st{font-size:12px;margin-top:6px;color:var(--mu)}.st.err{color:var(--er)}
 </style></head><body><div class="w">
-<div class="top"><div><h1>CoastFIRE 總覽</h1><div class="sub" id="src"></div></div><button id="rf">立即更新</button></div>
+<div class="top"><div><h1>CoastFIRE 總覽</h1><div class="sub" id="src"></div></div><div style="display:flex;gap:6px"><button id="shr">複製此頁分享連結</button><button id="rf">立即更新</button></div></div>
 <div class="c"><details><summary>資料來源設定（Google Sheet 發佈網址與各工作頁 gid）</summary>
 <div class="sub" style="margin-top:6px">填入「試算表 ID」可改用低延遲讀取（需把檔案共用設為「知道連結的任何人可檢視」），失敗會自動退回發佈網址。已預設你的發佈網址，會整份 XLSX 讀取（標籤自動產生）。只有整份讀取失敗時，才需要在下方填各工作頁 gid（開啟工作頁，網址結尾 #gid=數字）。</div>
 <div class="set"><label>發佈網址<input id="base" placeholder="https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?..."></label>
@@ -40,7 +40,9 @@ const SNAP={"現況年化報酬":[["第 1 欄","期初總資金","期間投入/�
 let NAMES=Object.keys(SNAP);const DEFAULT_BASE="https://docs.google.com/spreadsheets/d/e/2PACX-1vRwcc2bNzYzUtIccYwYsjOjVi6dbXMJT2bWFJyCKqHNc17_ugDLfwxHTPCUWqvHV2BLY9YiMdTD-Utl/pub";const baseUrl=()=>(cfgGet().base||DEFAULT_BASE).split("/pub")[0]+"/pub";
 const KPI=[["投組實質槓桿",{k:"組合總淨值"},"組合總淨值"],["投組實質槓桿",{k:"總資產"},"總資產"],["投資帳務",{k:"可用資金",kc:8,vc:9},"可用資金","未計在途"],["統一","I2","統一 未實現損益"],["統一",{l:"L",p:1},"維持率（ETF+債券）","最新值，已換算為 %"],["現況年化報酬",{l:"F"},"期末總資金","最新一期"],["現況年化報酬",{l:"L"},"總損益年化報酬率","最新一期"],["華冠第三期",{k:"市值合計",kc:1,vc:8,alt:[6,7]},"華冠總損益","市值合計列"],["AI實質槓桿",{k:"投組加權"},"AI 加權 Beta"],["AI實質槓桿",{k:"AI 個股群實質槓桿"},"AI 個股群實質槓桿"],["年化15%",{k:"116",kc:0,vc:6,x:1},"116 年期末總資金","年化 15%"],["年化15%",{k:"117",kc:0,vc:6,x:1},"117 年期末總資金","年化 15%"]];
 const LINK=[["統一","投資帳務","現況年化報酬","年化10% / 年化15%"],["統一","投資帳務","AI實質槓桿 / 投組實質槓桿"]];
-let G={...SNAP},live={},cur="總覽",timer;
+const ONLY=new URLSearchParams(location.search).get("only");
+let G={...SNAP},live={},cur=ONLY||decodeURIComponent(location.hash.slice(1))||"總覽",timer;
+if(cur!=="總覽"&&!SNAP[cur])cur="總覽";
 const $=id=>document.getElementById(id);
 const cfgGet=()=>{try{return JSON.parse(localStorage.getItem("cf-cfg"))||{}}catch(e){return{}}};
 const cfgSet=o=>{try{localStorage.setItem("cf-cfg",JSON.stringify(o))}catch(e){}};
@@ -92,7 +94,12 @@ document.querySelectorAll("[data-g]").forEach(i=>i.value=(c0.gids||{})[i.dataset
 $("sv").onclick=()=>{const gids={};document.querySelectorAll("[data-g]").forEach(i=>{if(i.value.trim())gids[i.dataset.g]=i.value.trim()});
  cfgSet({sid:$("sid").value.trim(),base:$("base").value.trim(),iv:$("iv").value,gids});live={};G={...SNAP};sched();refresh()};
 $("rf").onclick=refresh;$("iv").onchange=sched;
-$("tabs").onclick=e=>{const n=e.target.dataset.n;if(n){cur=n;view()}};
+$("tabs").onclick=e=>{const n=e.target.dataset.n;if(n){cur=n;history.replaceState(null,"","#"+encodeURIComponent(n));view()}};
+$("shr").onclick=async()=>{const u=location.origin+location.pathname+"?only="+encodeURIComponent(cur);
+ try{await navigator.clipboard.writeText(u);$("shr").textContent="已複製 ✓"}catch(e){prompt("複製此連結：",u)}
+ setTimeout(()=>$("shr").textContent="複製此頁分享連結",1500)};
+if(ONLY){$("tabs").style.display="none";document.querySelector("details").parentElement.style.display="none";$("shr").style.display="none";
+ document.querySelector("h1").textContent="CoastFIRE・"+cur;document.title="CoastFIRE・"+cur}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
 $("src").textContent="目前顯示：內建快照（尚未設定連線）";view();sched();refresh();
 </script></body></html>
