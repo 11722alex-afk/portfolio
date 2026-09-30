@@ -26,9 +26,10 @@ input{font:inherit;color:var(--tx);background:transparent;border:1px solid var(-
 </style></head><body><div class="w">
 <div class="top"><div><h1>CoastFIRE 總覽</h1><div class="sub" id="src"></div></div><button id="rf">立即更新</button></div>
 <div class="c"><details><summary>資料來源設定（Google Sheet 發佈網址與各工作頁 gid）</summary>
-<div class="sub" style="margin-top:6px">已預設你的發佈網址，會優先整份 XLSX 讀取（標籤自動產生）。只有整份讀取失敗時，才需要在下方填各工作頁 gid（開啟工作頁，網址結尾 #gid=數字）。</div>
+<div class="sub" style="margin-top:6px">填入「試算表 ID」可改用低延遲讀取（需把檔案共用設為「知道連結的任何人可檢視」），失敗會自動退回發佈網址。已預設你的發佈網址，會整份 XLSX 讀取（標籤自動產生）。只有整份讀取失敗時，才需要在下方填各工作頁 gid（開啟工作頁，網址結尾 #gid=數字）。</div>
 <div class="set"><label>發佈網址<input id="base" placeholder="https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?..."></label>
-<label>更新頻率<select id="iv"><option value="0">不自動更新</option><option value="60" selected>每 60 秒</option><option value="300">每 5 分鐘</option></select></label></div>
+<label>試算表 ID（選填，低延遲模式）<input id="sid" placeholder="網址 /d/ 與 /edit 之間那一串"></label>
+<label>更新頻率<select id="iv"><option value="0">不自動更新</option><option value="30">每 30 秒</option><option value="60" selected>每 60 秒</option><option value="300">每 5 分鐘</option></select></label></div>
 <div class="set" id="gids"></div>
 <div style="margin-top:8px"><button id="sv">儲存並更新</button></div><div class="st" id="st"></div></details></div>
 <div class="tabs" id="tabs"></div><div id="main"></div>
@@ -55,13 +56,19 @@ function view(){tabs();const m=$("main");
  const g=G[cur]||[];const rows=g.map(r=>r.map(x=>x??""));
  m.innerHTML=`<div class="c sc"><table>${rows.map((r,i)=>`<tr class="${i===0?"h":""}">${r.map(x=>{const s=String(x);const k=s.startsWith("#")?"e":/^-\d|^\(/.test(s)?"n":"";return`<td class="${k}">${s}</td>`}).join("")}</tr>`).join("")}</table></div>`}
 function setSt(t,e){$("st").textContent=t;$("st").className="st"+(e?" err":"")}
+function lag(){const g=G["統一"]||[];for(const r of g.slice(0,6))for(const x of r){const m=/更新[:：]?\s*(\d{1,2}):(\d{2}):(\d{2})/.exec(x||"");if(m){const n=new Date(),t=n.getHours()*60+n.getMinutes()-(+m[1]*60+ +m[2]);return{t:m[1]+":"+m[2]+":"+m[3],d:((t%1440)+1440)%1440}}}return null}
+function report(mode,n){const L=lag(),now=new Date().toLocaleTimeString("zh-TW",{hour12:false});
+ $("src").innerHTML=`${mode}（${n} 頁）　抓取 ${now}`+(L?`　試算表資料時間 ${L.t}<b style="color:${L.d>15?"var(--er)":"inherit"}">（落後約 ${L.d} 分鐘）</b>`:"")}
 async function refresh(){const b=baseUrl(),c=cfgGet();
+ if(c.sid){const ok=[];await Promise.all(NAMES.map(async n=>{try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${c.sid}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(n)}&_t=${Date.now()}`);if(!r.ok)throw 0;const t=await r.text();if(t.trim().startsWith("<"))throw 0;G[n]=parseCSV(t);live[n]=1;ok.push(n)}catch(e){}}));
+  if(ok.length===NAMES.length){report("即時・低延遲",ok.length);setSt("已更新 "+ok.length+" 頁");view();return}
+  setSt("低延遲模式失敗（請確認共用設為「知道連結的任何人可檢視」），改用發佈網址",1)}
  try{const r=await fetch(`${b}?output=xlsx&_t=${Date.now()}`);if(!r.ok)throw 0;
   const wb=XLSX.read(await r.arrayBuffer(),{type:"array"});
   const vis=wb.SheetNames.filter((n,i)=>!((wb.Workbook&&wb.Workbook.Sheets&&wb.Workbook.Sheets[i]||{}).Hidden));
   G={};live={};vis.forEach(n=>{G[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:""});live[n]=1});
   NAMES=vis;if(cur!=="總覽"&&!vis.includes(cur))cur="總覽";
-  $("src").textContent=`即時（整份 XLSX，${vis.length} 頁）　最後更新 ${new Date().toLocaleTimeString("zh-TW",{hour12:false})}`;
+  report("即時・整份 XLSX",vis.length);
   setSt("已更新 "+vis.length+" 頁");view();return}catch(e){}
  const jobs=NAMES.filter(n=>c.gids&&c.gids[n]),bad=[];
  if(!jobs.length){$("src").textContent="目前顯示：內建快照（整份 XLSX 讀取失敗）";setSt("整份讀取失敗，請在上方填入各工作頁 gid 改用逐頁讀取",1);view();return}
@@ -71,10 +78,10 @@ async function refresh(){const b=baseUrl(),c=cfgGet();
  setSt(bad.length?"讀取失敗："+bad.join("、"):"已更新 "+jobs.length+" 頁",bad.length);view()}
 function sched(){clearInterval(timer);const n=+$("iv").value;if(n>0)timer=setInterval(refresh,n*1000)}
 $("gids").innerHTML=NAMES.map(n=>`<label>${n} gid<input data-g="${n}"></label>`).join("");
-const c0=cfgGet();$("base").value=c0.base||"";$("iv").value=c0.iv||"60";
+const c0=cfgGet();$("base").value=c0.base||"";$("sid").value=c0.sid||"";$("iv").value=c0.iv||"60";
 document.querySelectorAll("[data-g]").forEach(i=>i.value=(c0.gids||{})[i.dataset.g]||"");
 $("sv").onclick=()=>{const gids={};document.querySelectorAll("[data-g]").forEach(i=>{if(i.value.trim())gids[i.dataset.g]=i.value.trim()});
- cfgSet({base:$("base").value.trim(),iv:$("iv").value,gids});live={};G={...SNAP};sched();refresh()};
+ cfgSet({sid:$("sid").value.trim(),base:$("base").value.trim(),iv:$("iv").value,gids});live={};G={...SNAP};sched();refresh()};
 $("rf").onclick=refresh;$("iv").onchange=sched;
 $("tabs").onclick=e=>{const n=e.target.dataset.n;if(n){cur=n;view()}};
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
