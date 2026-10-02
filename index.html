@@ -23,6 +23,13 @@ tr.h td{background:var(--hd);font-weight:600;color:var(--mu)}td.n{color:var(--er
 .set label{font-size:12px;color:var(--mu);display:flex;flex-direction:column;gap:2px}
 input{font:inherit;color:var(--tx);background:transparent;border:1px solid var(--bd);border-radius:6px;padding:4px 8px;width:100%}
 .st{font-size:12px;margin-top:6px;color:var(--mu)}.st.err{color:var(--er)}
+table.fit{width:100%}
+.fit td{white-space:nowrap;padding:5px 6px;font-size:13px}
+.fit td:first-child{text-align:center}
+.fit tr.h td{white-space:normal;text-align:center;line-height:1.3;vertical-align:middle}
+.notes{font-size:13px;line-height:1.7}
+.cg{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin-bottom:12px}.cg .c{margin:0}
+.lg2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mu);margin:4px 0}.lg2 i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 </style></head><body><div class="w">
 <div class="top"><div><h1>CoastFIRE 總覽</h1><div class="sub" id="src"></div></div><div style="display:flex;gap:6px"><button id="shr">複製此頁分享連結</button><button id="rf">立即更新</button></div></div>
 <div class="c"><details><summary>資料來源設定（Google Sheet 發佈網址與各工作頁 gid）</summary>
@@ -65,7 +72,43 @@ function view(){tabs();const m=$("main");
  if(cur==="總覽"){m.innerHTML=`<div class="k">${KPI.map(([s,a,l,x])=>`<div><div class="l">${l}</div><div class="v">${cell(s,a)||"—"}</div><div class="s">${s}${typeof a==="string"?"!"+a:""}${x?"　"+x:""}</div></div>`).join("")}</div>
  <div class="c" style="margin-top:12px"><b>工作頁連動關係</b><div class="sub" style="margin-top:4px">${LINK.map(l=>l.join(" → ")).join("<br>")}<br>連動公式都在 Google Sheet 內計算，網頁只讀取結果。</div></div>`;return}
  const g=G[cur]||[];const rows=g.map(r=>r.map(x=>x??""));
- m.innerHTML=`<div class="c sc"><table>${rows.map((r,i)=>`<tr class="${i===0?"h":""}">${r.map(x=>{const s=String(x);const k=s.startsWith("#")?"e":/^-\d|^\(/.test(s)?"n":"";return`<td class="${k}">${s}</td>`}).join("")}</tr>`).join("")}</table></div>`}
+ if(cur==="現況年化報酬"){let last=0;rows.forEach((r,i)=>{if(i>0&&isNum(r[0]))last=i});
+  let nt=rows.slice(last+1).map(r=>r.filter(Boolean).join(" ")).filter(Boolean);
+  if(!nt.length)nt=NOTES.length?NOTES:DEF_NOTES;
+  m.innerHTML=tbl(rows.slice(0,last+1),"fit")+`<div class="c notes"><b>備註</b>${nt.map(x=>`<div>${x}</div>`).join("")}</div>`+charts(rows.slice(0,last+1));return}
+ m.innerHTML=tbl(rows,"")}
+
+const money=v=>{const a=Math.abs(v);return a>=1e6?+(v/1e6).toFixed(2)+"M":a>=1e3?Math.round(v/1e3)+"K":""+v},pct=v=>+v.toFixed(1)+"%";
+function nice(a,b){if(a===b)b=a+1;const sp=(b-a)/4,m=Math.pow(10,Math.floor(Math.log10(sp))),f=sp/m,st=(f<=1?1:f<=2?2:f<=5?5:10)*m,lo=Math.floor(a/st+1e-9)*st,hi=Math.ceil(b/st-1e-9)*st,t=[];for(let v=lo;v<=hi+st/2;v+=st)t.push(+v.toFixed(6));return t}
+function svgc(o){const W=600,H=260,L=54,R=12,T=16,B=40,w=W-L-R,h=H-T-B,n=o.cats.length,S=o.series,f=o.fmt;let lo=0,hi=0;
+ if(o.type==="stack"){for(let i=0;i<n;i++){let p=0,q=0;S.forEach(s=>{const v=s.vals[i]||0;v>=0?p+=v:q+=v});hi=Math.max(hi,p);lo=Math.min(lo,q)}}
+ else S.forEach(s=>s.vals.forEach(v=>{if(!isNaN(v)){hi=Math.max(hi,v);lo=Math.min(lo,v)}}));
+ const tk=nice(lo,hi||1);lo=tk[0];hi=tk[tk.length-1];
+ const y=v=>T+h*(1-(v-lo)/(hi-lo)),bw=w/n,x=i=>L+bw*(i+.5);
+ let g=tk.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--bd)"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end" font-size="10" fill="var(--mu)">${f(v)}</text>`).join("");
+ g+=`<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--mu)" opacity=".6"/>`;
+ o.cats.forEach((c,i)=>{g+=`<text x="${x(i)}" y="${T+h+16}" text-anchor="middle" font-size="11" fill="var(--mu)">${c}</text>`});
+ const fz=o.type==="group"&&S.length>1?8:9,lab=(cx,cy,t)=>`<text x="${cx}" y="${cy}" text-anchor="middle" font-size="${fz}" fill="var(--tx)">${t}</text>`;
+ if(o.type==="stack"){for(let i=0;i<n;i++){let p=0,q=0;S.forEach(s=>{const v=s.vals[i]||0,a=v>=0?[p+v,p]:[q,q+v];v>=0?p+=v:q+=v;g+=`<rect x="${x(i)-bw*.3}" y="${y(a[0])}" width="${bw*.6}" height="${Math.max(0,y(a[1])-y(a[0]))}" fill="${s.color}"><title>${o.cats[i]} ${s.name}：${f(v)}</title></rect>`});g+=lab(x(i),y(p)-4,f(p+q))}}
+ else if(o.type==="group"){const k=S.length,bd=bw*.72/k;S.forEach((s,j)=>s.vals.forEach((v,i)=>{if(isNaN(v))return;const bx=x(i)-bw*.36+j*bd,y0=y(0),y1=y(v);
+  g+=`<rect x="${bx}" y="${Math.min(y0,y1)}" width="${bd-1}" height="${Math.abs(y1-y0)}" fill="${o.sign&&v<0?"var(--er)":s.color}"><title>${o.cats[i]} ${s.name}：${f(v)}</title></rect>`+lab(bx+bd/2,v>=0?y1-3:y1+11,f(v))}))}
+ else{S.forEach(s=>{const pts=s.vals.map((v,i)=>isNaN(v)?null:[x(i),y(v),v,i]).filter(Boolean);g+=`<polyline points="${pts.map(p=>p[0]+","+p[1]).join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`+pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${s.color}"><title>${o.cats[p[3]]} ${s.name}：${f(p[2])}</title></circle>`).join("");const e=pts[pts.length-1];if(e)g+=lab(e[0],e[1]-8,f(e[2]))})}
+ return`<div class="c"><b>${o.title}</b><div class="lg2">${S.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join("")}${o.sign?'<span><i style="background:var(--er)"></i>虧損</span>':""}</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${g}</svg></div>`}
+function charts(rows){if(rows.length<3)return"";const H=rows[0],ci=(...t)=>H.findIndex(x=>t.some(k=>(x||"").includes(k))),d=rows.slice(1);
+ const col=(...t)=>{const c=ci(...t);return d.map(r=>c<0?NaN:toN(r[c]))};
+ const cats=d.map((r,i)=>String(r[0])+(i===0||i===d.length-1?"*":"")),B=col("年初總資金","期初總資金"),C=col("期間個人投入","期間投入"),F=col("年末總資金","期末總資金");
+ let p=B[0]||0;const prin=C.map(c=>p+=(c||0)),gain=F.map((v,i)=>v-prin[i]),C1="var(--ac)",C2="#f5a524",C3="#12a5a0";
+ const sp=(name,color,vals)=>({name,color,vals});
+ return`<div class="cg">${[
+ {title:"資金成長（年末總資金＝累計投入本金＋累計損益）",type:"stack",fmt:money,series:[sp("累計投入本金",C1,prin),sp("累計損益",C3,gain)]},
+ {title:"各年度報酬率",type:"group",fmt:pct,series:[sp("已實現年度報酬率",C2,col("已實現年度報酬率","已實現YTD")),sp("總損益年度報酬率",C1,col("年度總損益(%)","總損益YTD"))]},
+ {title:"累計年化報酬率趨勢",type:"line",fmt:pct,series:[sp("總損益年化報酬率",C1,col("總損益年化報酬率")),sp("已實現年化報酬率",C2,col("已實現年化報酬率"))]},
+ {title:"各年度已實現損益",type:"group",sign:true,fmt:money,series:[sp("已實現年度損益",C1,col("已實現年度損益"))]}
+ ].map(o=>svgc({...o,cats})).join("")}</div><div class="sub">* 首年自 5/1 起算（約 8 個月）、末年為年初至今（YTD），兩者均未換算成整年；累計投入本金＝首年年初總資金＋歷年期間投入／提領</div>`}
+function tbl(rows,cls){return`<div class="c sc"><table class="${cls}">${rows.map((r,i)=>`<tr class="${i===0?"h":""}">${r.map(x=>{const s=String(x);const k=s.startsWith("#")?"e":/^-\d|^\(/.test(s)?"n":"";return`<td class="${k}">${s}</td>`}).join("")}</tr>`).join("")}</table></div>`}
+const DEF_NOTES=["1.本個人基金2020年5月1日啟始","2.總資金定義為「2020年初始投入20萬+各年度新增科目一貸款+累計總損益」","3.槓桿資金來源為信貸、質押、科目四","4.報酬計算為還原槓桿後之計算結果。"];let NOTES=[];
+async function fetchNotes(sid){try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent("現況年化報酬")}&range=A9:B30&_t=${Date.now()}`);if(!r.ok)return;const t=await r.text();if(t.trim().startsWith("<"))return;
+ const L=parseCSV(t).map(r=>r.filter(Boolean).join(" ").replace(/^備註[:：]\s*/,"").trim()).filter(Boolean);if(L.length)NOTES=L}catch(e){}}
 function setSt(t,e){$("st").textContent=t;$("st").className="st"+(e?" err":"")}
 function lag(){const g=G["統一"]||[];for(const r of g.slice(0,6))for(const x of r){const m=/更新[:：]?\s*(\d{1,2}):(\d{2}):(\d{2})/.exec(x||"");if(m){const n=new Date(),t=n.getHours()*60+n.getMinutes()-(+m[1]*60+ +m[2]);return{t:m[1]+":"+m[2]+":"+m[3],d:((t%1440)+1440)%1440}}}return null}
 function report(mode,n){const L=lag(),now=new Date().toLocaleTimeString("zh-TW",{hour12:false});
@@ -73,7 +116,7 @@ function report(mode,n){const L=lag(),now=new Date().toLocaleTimeString("zh-TW",
 async function refresh(){const b=baseUrl(),c=cfgGet();
  const sid=SID_Q||c.sid;
  if(sid){const ok=[];await Promise.all(NAMES.map(async n=>{try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(n)}&_t=${Date.now()}`);if(!r.ok)throw 0;const t=await r.text();if(t.trim().startsWith("<"))throw 0;G[n]=parseCSV(t);live[n]=1;ok.push(n)}catch(e){}}));
-  if(ok.length===NAMES.length){report("即時・低延遲",ok.length);setSt("已更新 "+ok.length+" 頁");view();return}
+  if(ok.length===NAMES.length){await fetchNotes(sid);report("即時・低延遲",ok.length);setSt("已更新 "+ok.length+" 頁");view();return}
   setSt("低延遲模式失敗（請確認共用設為「知道連結的任何人可檢視」），改用發佈網址",1)}
  try{const r=await fetch(`${b}?output=xlsx&_t=${Date.now()}`);if(!r.ok)throw 0;
   const wb=XLSX.read(await r.arrayBuffer(),{type:"array"});
