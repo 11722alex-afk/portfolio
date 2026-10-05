@@ -94,24 +94,28 @@ function view(){tabs();const m=$("main");
  m.innerHTML=tbl(rows,"")}
 
 function alloc(){const v=k=>cell("統一",{k,kc:0,vc:12,x:1})||"—";return`<div style="grid-column:span 2"><div class="l">資產配置比例</div><div class="al3"><div><span>個股</span><b>${v("個股")}</b></div><div><span>股權 ETF</span><b>${v("ETF")}</b></div><div><span>債券 ETF</span><b>${v("債券")}</b></div></div><div class="s">統一　佔總部位</div></div>`}
-function pie(){const g=G["統一"]||[],gr=[["個股",220,"個股"],["ETF",170,"股權 ETF"],["債券",35,"債券 ETF"]],items=[];let cg=null;
+function pie(){const g=G["統一"]||[],gr=[["個股","#5b6b8c","個股"],["ETF","#3f8f8a","股權 ETF"],["債券","#b08a4a","債券 ETF"]],items=[],hd=g[0]||[];
+ const fc=t=>hd.findIndex(x=>(x||"").includes(t)),mc=fc("資產配置比例")>=0?fc("資產配置比例"):12,rc=fc("報酬率")>=0?fc("報酬率"):7;let cg=null;
  g.forEach(r=>{const a=(r[0]||"").trim();if(gr.some(x=>x[0]===a)){cg=a;return}
-  const v=toN(r[12]);if(cg&&/^\d{4,6}[A-Z]?$/.test((r[1]||"").trim())&&!isNaN(v)&&v>0)items.push({g:cg,n:a,v,t:r[12]})});
+  const v=toN(r[mc]);if(cg&&/^\d{4,6}[A-Z]?$/.test((r[1]||"").trim())&&!isNaN(v)&&v>0)items.push({g:cg,n:a,v,t:r[mc],rt:toN(r[rc])})});
  if(!items.length)return"";
- const tot=items.reduce((x,i)=>x+i.v,0),hue=Object.fromEntries(gr.map(x=>[x[0],x[1]])),cnt={},seen={};
- items.forEach(i=>{cnt[i.g]=(cnt[i.g]||0)+1});
- items.forEach(i=>{const k=seen[i.g]=(seen[i.g]||0)+1;i.c=`hsl(${hue[i.g]},65%,${Math.round(38+(k-1)*(30/Math.max(cnt[i.g]-1,1)))}%)`});
- const W=680,H=340,cx=W/2,cy=H/2,R=105,r0=60,P=(rr,a)=>[cx+rr*Math.cos(a),cy+rr*Math.sin(a)];
- let a0=-Math.PI/2,sl="";const lb=[];
- items.forEach(i=>{const a1=a0+2*Math.PI*i.v/tot,am=(a0+a1)/2,lg=a1-a0>Math.PI?1:0,[x0,y0]=P(R,a0).map(n=>n.toFixed(1)),[x1,y1]=P(R,a1).map(n=>n.toFixed(1)),[x2,y2]=P(r0,a1).map(n=>n.toFixed(1)),[x3,y3]=P(r0,a0).map(n=>n.toFixed(1));
-  sl+=`<path d="M${x0} ${y0}A${R} ${R} 0 ${lg} 1 ${x1} ${y1}L${x2} ${y2}A${r0} ${r0} 0 ${lg} 0 ${x3} ${y3}Z" fill="${i.c}" stroke="var(--card)" stroke-width="1.5"><title>${i.n}　${i.t}</title></path>`;
-  const e=P(R,am),m=P(R+16,am);lb.push({i,sd:Math.cos(am)>=0?1:-1,e,m,ty:m[1]});a0=a1});
+ const mx=Math.max(1,...items.map(i=>isNaN(i.rt)?0:Math.abs(i.rt)));
+ items.forEach(i=>{if(isNaN(i.rt)){i.c="#9aa3b2";return}const t=Math.sqrt(Math.min(Math.abs(i.rt)/mx,1));i.c=`hsl(${i.rt>=0?0:140},70%,${Math.round(84-54*t)}%)`});
+ const tot=items.reduce((x,i)=>x+i.v,0),W=680,H=340,cx=W/2,cy=H/2,R=100,r0=58,P=(rr,a)=>[cx+rr*Math.cos(a),cy+rr*Math.sin(a)],f1=p=>p.map(n=>n.toFixed(1));
+ const arc=(ri,ro,a,b)=>{const lg=b-a>Math.PI?1:0,[x0,y0]=f1(P(ro,a)),[x1,y1]=f1(P(ro,b)),[x2,y2]=f1(P(ri,b)),[x3,y3]=f1(P(ri,a));return`M${x0} ${y0}A${ro} ${ro} 0 ${lg} 1 ${x1} ${y1}L${x2} ${y2}A${ri} ${ri} 0 ${lg} 0 ${x3} ${y3}Z`};
+ let a0=-Math.PI/2,sl="";const lb=[],ga={};
+ items.forEach(i=>{const a1=a0+2*Math.PI*i.v/tot,am=(a0+a1)/2,rs=isNaN(i.rt)?"":"　報酬率 "+(i.rt>=0?"+":"")+i.rt.toFixed(1)+"%";
+  sl+=`<path d="${arc(r0,R,a0,a1)}" fill="${i.c}" stroke="var(--card)" stroke-width="1.5"><title>${i.n}　配置 ${i.t}${rs}</title></path>`;
+  (ga[i.g]=ga[i.g]||{a:a0,b:a1}).b=a1;
+  const e=P(R+11,am),m=P(R+18,am);lb.push({i,rs:isNaN(i.rt)?"":(i.rt>=0?"+":"")+i.rt.toFixed(1)+"%",sd:Math.cos(am)>=0?1:-1,e,m,ty:m[1]});a0=a1});
+ const ring=gr.map(([k,c,n])=>ga[k]?`<path d="${arc(R+5,R+10,ga[k].a,ga[k].b)}" fill="${c}"><title>${n}</title></path>`:"").join("");
  [1,-1].forEach(sd=>{const L=lb.filter(l=>l.sd===sd).sort((p,q)=>p.m[1]-q.m[1]);let pv=-1e9;L.forEach(l=>{l.ty=Math.max(l.m[1],pv+15);pv=l.ty});
-  for(let k=L.length-1;k>=0;k--){const mx=k===L.length-1?H-8:L[k+1].ty-15;if(L[k].ty>mx)L[k].ty=mx}});
- const ll=lb.map(l=>{const lx=cx+l.sd*(R+36),an=l.sd>0?"start":"end";
-  return`<polyline points="${l.e.map(n=>n.toFixed(1)).join(",")} ${l.m.map(n=>n.toFixed(1)).join(",")} ${lx},${l.ty.toFixed(1)}" fill="none" stroke="${l.i.c}" stroke-width="1"/><text x="${lx+l.sd*4}" y="${(l.ty+4).toFixed(1)}" text-anchor="${an}" font-size="11" fill="var(--tx)">${l.i.n}　${l.i.t}</text>`}).join("");
- const leg=gr.map(([k,h,n])=>{const sm=items.filter(i=>i.g===k).reduce((x,i)=>x+i.v,0);return sm?`<span><i style="background:hsl(${h},65%,48%)"></i>${n} ${+sm.toFixed(2)}%</span>`:""}).join("");
- return`<div class="c" style="margin-top:12px"><b>資產配置比例</b><div class="lg2">${leg}</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:760px;display:block;margin:0 auto;height:auto">${sl}${ll}<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="var(--mu)">總部位現值</text><text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="15" font-weight="600" fill="var(--tx)">${cell("統一","G2")||""}</text></svg></div>`}
+  for(let k=L.length-1;k>=0;k--){const mx2=k===L.length-1?H-8:L[k+1].ty-15;if(L[k].ty>mx2)L[k].ty=mx2}});
+ const ll=lb.map(l=>{const lx=cx+l.sd*(R+40),an=l.sd>0?"start":"end";
+  return`<polyline points="${f1(l.e).join(",")} ${f1(l.m).join(",")} ${lx},${l.ty.toFixed(1)}" fill="none" stroke="${l.i.c}" stroke-width="1.2"/><text x="${lx+l.sd*4}" y="${(l.ty+4).toFixed(1)}" text-anchor="${an}" font-size="11" fill="var(--tx)">${l.i.n}　${l.i.t}${l.rs?"　"+l.rs:""}</text>`}).join("");
+ const sm=k=>items.filter(i=>i.g===k).reduce((x,i)=>x+i.v,0),leg=gr.map(([k,c,n])=>sm(k)?`<span><i style="background:${c}"></i>${n} ${+sm(k).toFixed(2)}%</span>`:"").join("");
+ const grad='<span>報酬率　虧損<i style="width:110px;height:9px;border-radius:2px;margin:0 6px;background:linear-gradient(90deg,hsl(140,70%,30%),hsl(140,70%,84%),hsl(0,70%,84%),hsl(0,70%,30%))"></i>獲利（顏色愈深，幅度愈大）</span>';
+ return`<div class="c" style="margin-top:12px"><b>資產配置比例</b><div class="lg2">${leg}${grad}</div><div class="sub">切片顏色＝該持股報酬率；外圈＝分類</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:760px;display:block;margin:0 auto;height:auto">${sl}${ring}${ll}<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="var(--mu)">總部位現值</text><text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="15" font-weight="600" fill="var(--tx)">${cell("統一","G2")||""}</text></svg></div>`}
 const money=v=>{const a=Math.abs(v);return a>=1e6?+(v/1e6).toFixed(2)+"M":a>=1e3?Math.round(v/1e3)+"K":""+v},pct=v=>+v.toFixed(1)+"%";
 function nice(a,b){if(a===b)b=a+1;const sp=(b-a)/4,m=Math.pow(10,Math.floor(Math.log10(sp))),f=sp/m,st=(f<=1?1:f<=2?2:f<=5?5:10)*m,lo=Math.floor(a/st+1e-9)*st,hi=Math.ceil(b/st-1e-9)*st,t=[];for(let v=lo;v<=hi+st/2;v+=st)t.push(+v.toFixed(6));return t}
 function svgc(o){const W=600,H=260,L=54,R=12,T=16,B=40,w=W-L-R,h=H-T-B,n=o.cats.length,S=o.series,f=o.fmt;let lo=0,hi=0;
