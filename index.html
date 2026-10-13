@@ -36,6 +36,7 @@ table.fit{width:100%}
 .yn{font-size:12px;line-height:1.7;margin-top:8px}.yn div{display:flex;gap:8px}.yn span{flex:none;min-width:5em;color:var(--mu);font-weight:600}
 .al3{display:flex;gap:18px;flex-wrap:wrap;margin:2px 0}.al3 span{display:block;font-size:11px;color:var(--mu)}.al3 b{font-size:18px;font-weight:600}
 .sh{width:100%;margin-top:6px}.sh td{padding:6px 8px;white-space:nowrap}.sh td:first-child{text-align:left}.pu{color:var(--er)}.pd{color:#12a150}
+.mc{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;align-items:start}.mc>div{display:flex;flex-direction:column;gap:12px}.mc .c{margin:0}
 </style></head><body><div class="w">
 <div class="top"><div><h1>CoastFIRE 總覽</h1><div class="sub" id="src"></div></div><div style="display:flex;gap:6px"><button id="shr">複製此頁分享連結</button><button id="rf">立即更新</button></div></div>
 <div class="c"><details><summary>資料來源設定（Google Sheet 發佈網址與各工作頁 gid）</summary>
@@ -88,8 +89,11 @@ const esc=x=>String(x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 function show(g){const bl=[];let b=null;
  g.forEach(r=>{const a=(r[0]||"").trim();if(a.startsWith("■")){b={t:a.replace(/^■\s*/,""),rows:[]};bl.push(b);return}if(b&&r.some(x=>(x||"").trim()))b.rows.push(r.map(x=>(x||"").trim()))});
  if(!bl.length)return`<div class="c">尚未讀到「展示」工作頁的內容（區塊標題需以「■」開頭）</div>`;
- return`<div class="cg">${bl.map(b=>{const h=b.rows[0]||[],d=b.rows.slice(1);let n=0;h.forEach((x,i)=>{if(x)n=i+1});
-  return`<div class="c"><b>${esc(b.t)}</b><table class="sh"><tr class="h">${h.slice(0,n).map(x=>`<td>${esc(x)}</td>`).join("")}</tr>${d.map(r=>`<tr>${r.slice(0,n).map((x,i)=>{const k=i>0&&/%$/.test(x)?(parseFloat(x)>0?"pu":parseFloat(x)<0?"pd":""):"";return`<td class="${k}">${esc(x)}</td>`}).join("")}</tr>`).join("")}</table></div>`}).join("")}</div>`}
+ const col=[[],[]],ht=[0,0];
+ bl.forEach(b=>{const h=b.rows[0]||[],d=b.rows.slice(1);let n=0;h.forEach((x,i)=>{if(x)n=i+1});
+  const html=`<div class="c"><b>${esc(b.t)}</b><table class="sh"><tr class="h">${h.slice(0,n).map(x=>`<td>${esc(x)}</td>`).join("")}</tr>${d.map(r=>`<tr>${r.slice(0,n).map((x,i)=>{const k=i>0&&/%$/.test(x)?(parseFloat(x)>0?"pu":parseFloat(x)<0?"pd":""):"";return`<td class="${k}">${esc(x)}</td>`}).join("")}</tr>`).join("")}</table></div>`;
+  const i=ht[0]<=ht[1]?0:1;col[i].push(html);ht[i]+=d.length+3});
+ return`<div class="mc">${col.map(x=>`<div>${x.join("")}</div>`).join("")}</div>`}
 function tabs(){$("tabs").innerHTML=["總覽",...NAMES.filter(n=>SHOW.includes(n))].map(n=>`<button class="${n===cur?"on":""}" data-n="${n}">${n}${live[n]?" ●":""}</button>`).join("")}
 function view(){tabs();const m=$("main");
  if(cur==="總覽"){m.innerHTML=`<div class="k">${KPI.map(([s,a,l,x])=>`<div><div class="l">${l}</div><div class="v">${cell(s,a)||"—"}</div><div class="s">${(L=>L?s+"｜"+L:s)(zh(lab(s,a)))}${x?"（"+x+"）":""}</div></div>`).join("")}${alloc()}</div>
